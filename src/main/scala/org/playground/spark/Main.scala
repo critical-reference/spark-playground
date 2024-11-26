@@ -47,37 +47,37 @@ object Main extends App {
 
   // MAIN2
 
-/*  val avgTicketPrices = avg_ticket_price(yellow_tripdata, green_tripdata)
-   writeToParquet(avgTicketPrices, ticketAveragesPath)
+  /*  val avgTicketPrices = avg_ticket_price(yellow_tripdata, green_tripdata)
+     writeToParquet(avgTicketPrices, ticketAveragesPath)
 
-  val (paymentMethodsYellow, paymentMethodsGreen ) = top_payment_methods(yellow_tripdata, green_tripdata)
-  writeToParquet(paymentMethodsYellow, paymentMethodsYellowPath)
-  writeToParquet(paymentMethodsGreen, paymentMethodsGreenPath)
+    val (paymentMethodsYellow, paymentMethodsGreen ) = top_payment_methods(yellow_tripdata, green_tripdata)
+    writeToParquet(paymentMethodsYellow, paymentMethodsYellowPath)
+    writeToParquet(paymentMethodsGreen, paymentMethodsGreenPath)
 
-  val (unusualTripsY, unusualTripsG) = passenger_analysis(yellow_tripdata, green_tripdata)
-  writeToParquet(unusualTripsY, unusualTripsYellowPath)
-  writeToParquet(unusualTripsG, unusualTripsGreenPath)
+    val (unusualTripsY, unusualTripsG) = passenger_analysis(yellow_tripdata, green_tripdata)
+    writeToParquet(unusualTripsY, unusualTripsYellowPath)
+    writeToParquet(unusualTripsG, unusualTripsGreenPath)
 
-  val top10LocsYellow = most_traffic(yellow_tripdata)
-  writeToParquet(top10LocsYellow, top10LocsYellowPath)
-  val top10LocsGreen = most_traffic(green_tripdata)
-  writeToParquet(top10LocsGreen, top10LocsGreenPath)
+    val top10LocsYellow = most_traffic(yellow_tripdata)
+    writeToParquet(top10LocsYellow, top10LocsYellowPath)
+    val top10LocsGreen = most_traffic(green_tripdata)
+    writeToParquet(top10LocsGreen, top10LocsGreenPath)
 
-  var hourlyAveragesYellow = hourly_avgs_yellow(yellow_tripdata)
-  writeToParquet(hourlyAveragesYellow, hourlyAveragesYellowPath)
-  var hourlyAveragesGreen = hourly_avgs_green(green_tripdata)
-  writeToParquet(hourlyAveragesGreen, hourlyAveragesGreenPath)
+    var hourlyAveragesYellow = hourly_avgs_yellow(yellow_tripdata)
+    writeToParquet(hourlyAveragesYellow, hourlyAveragesYellowPath)
+    var hourlyAveragesGreen = hourly_avgs_green(green_tripdata)
+    writeToParquet(hourlyAveragesGreen, hourlyAveragesGreenPath)
 
-  var weeklyAveragesYellow = weekly_avgs_yellow(yellow_tripdata)
-  writeToParquet(weeklyAveragesYellow, weeklyAvgsYellowPath)
-  var weeklyAveragesGreen = weekly_avgs_green(green_tripdata)
-  writeToParquet(weeklyAveragesGreen, weeklyAvgsGreenPath)
+    var weeklyAveragesYellow = weekly_avgs_yellow(yellow_tripdata)
+    writeToParquet(weeklyAveragesYellow, weeklyAvgsYellowPath)
+    var weeklyAveragesGreen = weekly_avgs_green(green_tripdata)
+    writeToParquet(weeklyAveragesGreen, weeklyAvgsGreenPath)
 
-  var averagesYellow = avgs_yellow(yellow_tripdata)
-  writeToParquet(averagesYellow, averagesYellowPath)
-  var averagesGreen = avgs_green(green_tripdata)
-  writeToParquet(averagesGreen, averagesGreenPath)
-*/
+    var averagesYellow = avgs_yellow(yellow_tripdata)
+    writeToParquet(averagesYellow, averagesYellowPath)
+    var averagesGreen = avgs_green(green_tripdata)
+    writeToParquet(averagesGreen, averagesGreenPath)
+  */
 
   val yellow_rdd = yellow_tripdata.rdd
   val green_rdd = green_tripdata.rdd
@@ -87,27 +87,59 @@ object Main extends App {
   println(s"Total rides yellow $yellow_rides")
   println(s"Total rides green $green_rides")
 
-  val yellow_earliest = yellow_earliest_ride(yellow_rdd)
+  val yellow_times = yellow_earliest_latest_ride(yellow_rdd)
+  println(s"Yellow earliest pickup: ${yellow_times._1}")
+  println(s"Yellow latest dropoff: ${yellow_times._2}")
   //val green_earliest = earliestRide(green_rdd)
 
   // FUNCTIONS
 
-  def yellow_earliest_ride(rides: RDD[Row])= {
+  def yellow_earliest_latest_ride(rides: RDD[Row]) = {
     //rides.collect().foreach(println)
-    val rides_formatted = rides.map(row=>{
+    val dfWithTime = yellow_tripdata
+      .withColumn("dropoff_time", date_format(col("tpep_dropoff_datetime"), "HH:mm:ss"))
+      .withColumn("pickup_time", date_format(col("tpep_pickup_datetime"), "HH:mm:ss"))
+
+    val maxDropoffDatetime = dfWithTime.agg(max("dropoff_time")).collect()(0)(0)
+    println(s"Maximum dropoff datetime: $maxDropoffDatetime")
+
+    val minPickupDatetime = dfWithTime.agg(min("pickup_time")).collect()(0)(0)
+    println(s"Minimum pickup datetime: $minPickupDatetime")
+
+    val rides_formatted = rides.map(row => {
       val col1 = row.getAs[java.time.LocalDateTime]("tpep_pickup_datetime")
       val col2 = row.getAs[java.time.LocalDateTime]("tpep_dropoff_datetime")
       (col1, col2)
     })
-    rides_formatted.collect().foreach(println)
+    //rides_formatted.collect().foreach(println)
+    val zero_value = (java.time.LocalDateTime.MAX, java.time.LocalDateTime.MIN) // (min, max)
+    val min_max_time = rides_formatted.aggregate(zero_value)(
+      (acc, value) => (earlier_time(acc._1, value._1), later_time(acc._2, value._2)), // SeqOp
+      (acc1, acc2) => (earlier_time(acc1._1, acc2._1), later_time(acc1._2, acc2._2)) // CombOp
+    )
+    min_max_time
+
   }
+
+  def earlier_time(d1: java.time.LocalDateTime, d2: java.time.LocalDateTime): java.time.LocalDateTime = {
+    if (d1.toLocalTime.isBefore(d2.toLocalTime))
+      return d1
+    else return d2
+  }
+
+  def later_time(d1: java.time.LocalDateTime, d2: java.time.LocalDateTime): java.time.LocalDateTime = {
+    if (d1.toLocalTime.isAfter(d2.toLocalTime))
+      return d1
+    else return d2
+  }
+
 
   def countRides(rides: RDD[Row]): Number = {
     val t = rides.count()
     t
   }
 
-  def exampleFunction(){
+  def exampleFunction() {
     // Sample dataset: List of ride IDs
     val rides: RDD[String] = sc.parallelize(Seq("ride1", "ride2", "ride3", "ride4", "ride5"))
     // Count the total number of rides
@@ -119,7 +151,7 @@ object Main extends App {
     val zeroValue = (Double.MaxValue, Double.MinValue) // (min, max)
     val minMaxDistances = distances.aggregate(zeroValue)(
       (acc, value) => (math.min(acc._1, value), math.max(acc._2, value)), // SeqOp
-      (acc1, acc2) => (math.min(acc1._1, acc2._1), math.max(acc1._2, acc2._2))  // CombOp
+      (acc1, acc2) => (math.min(acc1._1, acc2._1), math.max(acc1._2, acc2._2)) // CombOp
     )
     println(s"Shortest ride distance: ${minMaxDistances._1}")
     println(s"Longest ride distance: ${minMaxDistances._2}")
@@ -142,7 +174,7 @@ object Main extends App {
     }
   }
 
-  def writeToParquet(df: Dataset[Row], path: String)={
+  def writeToParquet(df: Dataset[Row], path: String) = {
     df
       .write
       .mode("overwrite")
@@ -200,7 +232,7 @@ object Main extends App {
       .withColumnRenamed("count(payment_type)", "count")
       .orderBy(col("count").desc)
 
-    (payment_y,payment_g)
+    (payment_y, payment_g)
   }
 
   def avg_ticket_price(yellow: Dataset[Row], green: Dataset[Row]): (Dataset[Row]) = {
@@ -217,7 +249,7 @@ object Main extends App {
     tickets
   }
 
-  def most_traffic(ds: Dataset[Row]):Dataset[Row] = {
+  def most_traffic(ds: Dataset[Row]): Dataset[Row] = {
     val PUloc = ds
       .groupBy("PULocationID")
       .agg(count("PULocationID"))
@@ -240,7 +272,7 @@ object Main extends App {
 
   }
 
-  def hourly_avgs_yellow(yellow: Dataset[Row]):Dataset[Row] = {
+  def hourly_avgs_yellow(yellow: Dataset[Row]): Dataset[Row] = {
     val yellow_tripdata_with_hour = yellow
       .withColumn("hour", hour(col("tpep_dropoff_datetime")))
       .withColumn(
@@ -258,7 +290,7 @@ object Main extends App {
     hourly_avgs_yell
   }
 
-  def hourly_avgs_green(green: Dataset[Row]):Dataset[Row] = {
+  def hourly_avgs_green(green: Dataset[Row]): Dataset[Row] = {
     val green_tripdata_with_hour = green
       .withColumn("hour", hour(col("lpep_dropoff_datetime")))
       .withColumn(
