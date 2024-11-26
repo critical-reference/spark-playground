@@ -1,13 +1,14 @@
 package org.playground.spark
 
-import org.apache.spark.sql.functions.col
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.functions.{col, unix_timestamp, _}
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
-import org.apache.spark.sql.functions._
 
 object Main extends App {
 
   val spark: SparkSession = SparkSession.builder().master("local[2]").getOrCreate()
+  val sc = spark.sparkContext
 
   // PATHS
 
@@ -41,10 +42,12 @@ object Main extends App {
   val green_tripdata: DataFrame = spark.read
     .parquet(greenTripDataPath)
 
+  yellow_tripdata.printSchema()
 
-  // MAIN
 
-  val avgTicketPrices = avg_ticket_price(yellow_tripdata, green_tripdata)
+  // MAIN2
+
+/*  val avgTicketPrices = avg_ticket_price(yellow_tripdata, green_tripdata)
    writeToParquet(avgTicketPrices, ticketAveragesPath)
 
   val (paymentMethodsYellow, paymentMethodsGreen ) = top_payment_methods(yellow_tripdata, green_tripdata)
@@ -74,8 +77,70 @@ object Main extends App {
   writeToParquet(averagesYellow, averagesYellowPath)
   var averagesGreen = avgs_green(green_tripdata)
   writeToParquet(averagesGreen, averagesGreenPath)
+*/
+
+  val yellow_rdd = yellow_tripdata.rdd
+  val green_rdd = green_tripdata.rdd
+
+  val yellow_rides = countRides(yellow_rdd)
+  val green_rides = countRides(green_rdd)
+  println(s"Total rides yellow $yellow_rides")
+  println(s"Total rides green $green_rides")
+
+  val yellow_earliest = yellow_earliest_ride(yellow_rdd)
+  //val green_earliest = earliestRide(green_rdd)
 
   // FUNCTIONS
+
+  def yellow_earliest_ride(rides: RDD[Row])= {
+    //rides.collect().foreach(println)
+    val rides_formatted = rides.map(row=>{
+      val col1 = row.getAs[java.time.LocalDateTime]("tpep_pickup_datetime")
+      val col2 = row.getAs[java.time.LocalDateTime]("tpep_dropoff_datetime")
+      (col1, col2)
+    })
+    rides_formatted.collect().foreach(println)
+  }
+
+  def countRides(rides: RDD[Row]): Number = {
+    val t = rides.count()
+    t
+  }
+
+  def exampleFunction(){
+    // Sample dataset: List of ride IDs
+    val rides: RDD[String] = sc.parallelize(Seq("ride1", "ride2", "ride3", "ride4", "ride5"))
+    // Count the total number of rides
+    val totalRides = rides.count();
+    println(s"Total number of rides $totalRides")
+    // Sample dataset: List of ride distances
+    val distances: RDD[Double] = sc.parallelize(Seq(2.3, 7.5, 1.2, 4.0, 5.8))
+    // Using aggregate to find min and max distances
+    val zeroValue = (Double.MaxValue, Double.MinValue) // (min, max)
+    val minMaxDistances = distances.aggregate(zeroValue)(
+      (acc, value) => (math.min(acc._1, value), math.max(acc._2, value)), // SeqOp
+      (acc1, acc2) => (math.min(acc1._1, acc2._1), math.max(acc1._2, acc2._2))  // CombOp
+    )
+    println(s"Shortest ride distance: ${minMaxDistances._1}")
+    println(s"Longest ride distance: ${minMaxDistances._2}")
+
+    val rideData = sc.parallelize(Seq(
+      ("zone1", "ride1"),
+      ("zone2", "ride2"),
+      ("zone3", "ride3")
+    )) // (pickup_zone, ride_id)
+    val zoneData = sc.parallelize(Seq(
+      ("zone1", "Downtown"),
+      ("zone2", "Midtown"),
+      ("zone3", "Uptown")
+    )) // (zone_id, zone_name)
+    // Perform an inner join on the key (zone_id)
+    val joinedData = rideData.join(zoneData)
+    // Result: (zone_id, (ride_id, zone_name))
+    joinedData.collect().foreach { case (zone, (rideId, zoneName)) =>
+      println(s"Ride ID: $rideId, Zone Name: $zoneName")
+    }
+  }
 
   def writeToParquet(df: Dataset[Row], path: String)={
     df
