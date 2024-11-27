@@ -5,6 +5,8 @@ import org.apache.spark.sql.functions.{col, unix_timestamp, _}
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
+import java.time.{Duration, LocalDate, LocalDateTime}
+
 object Main extends App {
 
   val spark: SparkSession = SparkSession.builder().master("local[2]").getOrCreate()
@@ -125,11 +127,72 @@ object Main extends App {
   println(s"Green shortest ride: ${green_shortest_longest_ride._1}")
   println(s"Green longest_ride: ${green_shortest_longest_ride._2}")
 
+  val yellow_average_speed = average_duration(yellow_rdd, yellowPickupColumn, yellowDropoffColumn)
+  println(s"Yellow average speed: ${yellow_average_speed} miles/hour")
+  val green_average_speed = average_duration(green_rdd, greenPickupColumn, greenDropoffColumn)
+  println(s"Green average speed: ${green_average_speed} miles/hour")
 
+  val yellow_rides_per_hour = rides_per_hour(yellow_rdd, yellowPickupColumn)
+  yellow_rides_per_hour.collect().foreach(println)
+  val green_rides_per_hour = rides_per_hour(green_rdd, greenPickupColumn)
+  green_rides_per_hour.collect().foreach(println)
 
+  val yellow_max_tip_by_vendor = max_tip_by_vendor(yellow_rdd)
+  yellow_max_tip_by_vendor.collect().foreach(println)
+  val green_max_tip_by_vendor = max_tip_by_vendor(green_rdd)
+  green_max_tip_by_vendor.collect().foreach(println)
 
+  val yellow_fares_by_day = fares_by_day(yellow_rdd, yellowDropoffColumn)
+  yellow_fares_by_day.collect().foreach(println)
+  val green_fares_by_day = fares_by_day(green_rdd, greenDropoffColumn)
+  green_fares_by_day.collect().foreach(println)
 
   // FUNCTIONS
+
+  def fares_by_day(rides: RDD[Row], column: String):RDD[(LocalDate, Double)] = {
+    val fares: RDD[(LocalDate, Double)] = rides
+      .map(row => (row.getAs[java.time.LocalDateTime](column).toLocalDate, row.getAs[Number]("fare_amount").doubleValue()))
+      .reduceByKey(_+_)
+    fares.sortBy(x => x._1.getDayOfMonth)
+  }
+
+  def max_tip_by_vendor(rides: RDD[Row]) = {
+    val tips: RDD[(Number, Double)] = rides
+      .map(row => (row.getAs[Number]("VendorID"), row.getAs[Number]("tip_amount").doubleValue()))
+      .reduceByKey((a, b)=> math.max(a,b))
+    tips
+  }
+
+  def rides_per_hour(rides: RDD[Row], pickup_column: String): RDD[(Int, Int)] = {
+    val rides_per_hour = rides
+      .map(row => {
+        (row.getAs[java.time.LocalDateTime](pickup_column).getHour.intValue, 1)
+      })
+      .reduceByKey(_ + _)
+    rides_per_hour.sortBy(x => x._1)
+  }
+
+  def average_duration(rides: RDD[Row], pickup_column: String, dropoff_column: String): Double = {
+    val rides_formatted: RDD[(LocalDateTime, LocalDateTime, Double)] = rides.map(row => {
+      val col1 = row.getAs[java.time.LocalDateTime](pickup_column)
+      val col2 = row.getAs[java.time.LocalDateTime](dropoff_column)
+      val col3 = Option(row.getAs[Number]("trip_distance"))
+        .map(x => x.doubleValue())
+        .getOrElse(0.0)
+      (col1, col2, col3)
+    })
+    val with_differences = rides_formatted.map(row => {
+      val duration = Duration.between(row._1, row._2).getSeconds.doubleValue
+      (duration, row._3)
+    })
+    val zero_val = (0.0, 0.0)
+    val final_sum = with_differences.aggregate(zero_val)(
+      (acc, value) => (acc._1 + value._1, acc._2 + value._2),
+      (acc1, acc2) => ((acc1._1 + acc2._1), acc1._2 + acc2._2)
+    )
+    println(s"Total duration: ${final_sum._1}seconds Total distance: ${final_sum._2}miles");
+    (final_sum._2 / final_sum._1) * 3600
+  }
 
   def shortest_longest_ride(rides: RDD[Row]): (Double, Double) = {
     val distances: RDD[Double] = rides.map(row => {
