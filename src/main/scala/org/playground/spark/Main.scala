@@ -15,6 +15,11 @@ object Main extends App {
   val yellowTripDataPath = "C:\\Users\\elena\\Desktop\\NYCdata\\yellow_tripdata_2024-02.parquet"
   val greenTripDataPath = "C:\\Users\\elena\\Desktop\\NYCdata\\green_tripdata_2024-02.parquet"
 
+  val yellowPickupColumn = "tpep_pickup_datetime"
+  val yellowDropoffColumn = "tpep_dropoff_datetime"
+  val greenPickupColumn = "lpep_pickup_datetime"
+  val greenDropoffColumn = "lpep_dropoff_datetime"
+
   val unusualTripsYellowPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\unusual_trips_yellow"
   val unusualTripsGreenPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\unusual_trips_green"
 
@@ -42,7 +47,6 @@ object Main extends App {
   val green_tripdata: DataFrame = spark.read
     .parquet(greenTripDataPath)
 
-  yellow_tripdata.printSchema()
 
 
   // MAIN2
@@ -82,43 +86,109 @@ object Main extends App {
   val yellow_rdd = yellow_tripdata.rdd
   val green_rdd = green_tripdata.rdd
 
+  green_tripdata.printSchema()
+
   val yellow_rides = countRides(yellow_rdd)
   val green_rides = countRides(green_rdd)
   println(s"Total rides yellow $yellow_rides")
   println(s"Total rides green $green_rides")
 
-  val yellow_times = yellow_earliest_latest_ride(yellow_rdd)
+  val yellow_times = earliest_latest_ride(yellow_rdd, yellowPickupColumn, yellowDropoffColumn)
   println(s"Yellow earliest pickup: ${yellow_times._1}")
   println(s"Yellow latest dropoff: ${yellow_times._2}")
-  //val green_earliest = earliestRide(green_rdd)
+
+  val green_times = earliest_latest_ride(green_rdd, greenPickupColumn, greenDropoffColumn)
+  println(s"Green earliest pickup: ${green_times._1}")
+  println(s"Green latest dropoff: ${green_times._2}")
+
+  val yellow_passenger_count = passenger_count(yellow_rdd)
+  println(s"Yellow total passengers: ${yellow_passenger_count}")
+  val green_passenger_count = passenger_count(green_rdd)
+  println(s"Green total passengers: ${green_passenger_count}")
+
+  val yellow_short_rides = short_rides_count(yellow_rdd)
+  println(s"Yellow short rides count: ${yellow_short_rides}")
+  val green_short_rides = short_rides_count(green_rdd)
+  println(s"Green short rides count: ${green_short_rides}")
+
+  val yellow_rides_per_type = rides_per_type(yellow_rdd)
+  yellow_rides_per_type.collect().foreach(println)
+
+  val green_rides_per_type = rides_per_type(green_rdd)
+  green_rides_per_type.collect().foreach(println)
+
+  val yellow_shortest_longest_ride = shortest_longest_ride(yellow_rdd)
+  println(s"Yellow shortest ride: ${yellow_shortest_longest_ride._1}")
+  println(s"Yellow longest_ride: ${yellow_shortest_longest_ride._2}")
+
+  val green_shortest_longest_ride = shortest_longest_ride(green_rdd)
+  println(s"Green shortest ride: ${green_shortest_longest_ride._1}")
+  println(s"Green longest_ride: ${green_shortest_longest_ride._2}")
+
+
+
+
 
   // FUNCTIONS
 
-  def yellow_earliest_latest_ride(rides: RDD[Row]) = {
-    //rides.collect().foreach(println)
-    val dfWithTime = yellow_tripdata
-      .withColumn("dropoff_time", date_format(col("tpep_dropoff_datetime"), "HH:mm:ss"))
-      .withColumn("pickup_time", date_format(col("tpep_pickup_datetime"), "HH:mm:ss"))
+  def shortest_longest_ride(rides: RDD[Row]): (Double, Double) = {
+    val distances: RDD[Double] = rides.map(row => {
+      Option(row.getAs[Number]("trip_distance"))
+        .map(x => x.doubleValue())
+        .getOrElse(0)
+    })
+    val zeroVal = (Double.MaxValue, Double.MinValue)
+    val min_max = distances.aggregate(zeroVal)(
+      (acc, value) => (math.min(acc._1, value), math.max(acc._2, value)),
+      (acc1, acc2) => (math.min(acc1._1, acc2._1), math.max(acc1._2, acc2._2))
+    )
+    min_max
+  }
 
-    val maxDropoffDatetime = dfWithTime.agg(max("dropoff_time")).collect()(0)(0)
-    println(s"Maximum dropoff datetime: $maxDropoffDatetime")
+  def rides_per_type(rides: RDD[Row]): RDD[(Number, Int)] = {
+    val payment_type_count = rides
+      .map(row => (row.getAs[Number]("payment_type"), 1))
+      .reduceByKey((v1, v2) => v1 + v2)
+    //val sorted = payment_type_count.sortBy(_._1, ascending = false)(Ordering[Int])
+    payment_type_count
+  }
 
-    val minPickupDatetime = dfWithTime.agg(min("pickup_time")).collect()(0)(0)
-    println(s"Minimum pickup datetime: $minPickupDatetime")
+  def short_rides_count(rides: RDD[Row]): Number = {
+    val distances: RDD[Double] = rides.map(row => {
+      Option(row.getAs[Number]("trip_distance"))
+        .map(x => x.doubleValue())
+        .getOrElse(0)
+    })
+    val short_distances = distances.filter(d => d > 1)
+    short_distances.count()
+  }
 
+  def passenger_count(rides: RDD[Row]): Number = {
+    val passengers = rides.map(row => {
+      Option(row.getAs[Number]("passenger_count"))
+        .map(x => x.intValue())
+        .getOrElse(0)
+    })
+    val zeroValue = 0
+    val total_count = passengers.aggregate(zeroValue)(
+      (acc, value) => acc + value,
+      (acc1, acc2) => acc1 + acc2
+    )
+    total_count
+  }
+
+  def earliest_latest_ride(rides: RDD[Row], pickup_column: String, dropoff_column: String) = {
     val rides_formatted = rides.map(row => {
-      val col1 = row.getAs[java.time.LocalDateTime]("tpep_pickup_datetime")
-      val col2 = row.getAs[java.time.LocalDateTime]("tpep_dropoff_datetime")
+      val col1 = row.getAs[java.time.LocalDateTime](pickup_column)
+      val col2 = row.getAs[java.time.LocalDateTime](dropoff_column)
       (col1, col2)
     })
-    //rides_formatted.collect().foreach(println)
     val zero_value = (java.time.LocalDateTime.MAX, java.time.LocalDateTime.MIN) // (min, max)
     val min_max_time = rides_formatted.aggregate(zero_value)(
       (acc, value) => (earlier_time(acc._1, value._1), later_time(acc._2, value._2)), // SeqOp
       (acc1, acc2) => (earlier_time(acc1._1, acc2._1), later_time(acc1._2, acc2._2)) // CombOp
     )
     min_max_time
-
   }
 
   def earlier_time(d1: java.time.LocalDateTime, d2: java.time.LocalDateTime): java.time.LocalDateTime = {
