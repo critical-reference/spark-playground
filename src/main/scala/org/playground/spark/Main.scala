@@ -2,20 +2,26 @@ package org.playground.spark
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions.{col, unix_timestamp, _}
-import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
+import org.apache.spark.sql.types.{DataTypes, IntegerType, StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
-import java.time.{Duration, LocalDate, LocalDateTime}
+import java.sql.Date
+import java.time.format.DateTimeFormatter
+import java.time.{Duration, LocalDate, LocalDateTime, Month}
 
 object Main extends App {
 
   val spark: SparkSession = SparkSession.builder().master("local[2]").getOrCreate()
   val sc = spark.sparkContext
 
+
   // PATHS
 
   val yellowTripDataPath = "C:\\Users\\elena\\Desktop\\NYCdata\\yellow_tripdata_2024-02.parquet"
   val greenTripDataPath = "C:\\Users\\elena\\Desktop\\NYCdata\\green_tripdata_2024-02.parquet"
+  val weatherDataPath = "C:\\Users\\elena\\Desktop\\NYCdata\\open-meteo-40.74N74.04W27m.csv"
+  val zoneDataPath =  "C:\\Users\\elena\\Desktop\\NYCdata\\taxi_zones.csv"
+  val dateFormatter = DateTimeFormatter.ofPattern("M/d/yyyy")
 
   val yellowPickupColumn = "tpep_pickup_datetime"
   val yellowDropoffColumn = "tpep_dropoff_datetime"
@@ -48,6 +54,18 @@ object Main extends App {
     .parquet(yellowTripDataPath)
   val green_tripdata: DataFrame = spark.read
     .parquet(greenTripDataPath)
+
+  val weather_data: DataFrame = spark.read
+    .option("header", "true")
+    .option("inferSchema", "true")
+    .csv(weatherDataPath)
+
+  val zone_data: DataFrame = spark.read
+    .option("header", "true")
+    .option("inferSchema", "true")
+    .csv(zoneDataPath)
+
+  zone_data.show()
 
 
 
@@ -85,12 +103,20 @@ object Main extends App {
     writeToParquet(averagesGreen, averagesGreenPath)
   */
 
+
   val yellow_rdd = yellow_tripdata.rdd
   val green_rdd = green_tripdata.rdd
+  val weather_rdd = weather_data.rdd //.zipWithIndex().filter{ case (_, index) => index>=2 }.map(_._1)
+  val zones_rdd = zone_data
+    .rdd
+    .map(row=>{
+      val col1 = row.getAs[String]("zone")
+      val col2 = row.getAs[Number]("LocationID")
+      (col1, col2)
+    })
 
-  green_tripdata.printSchema()
 
-  val yellow_rides = countRides(yellow_rdd)
+ /* val yellow_rides = countRides(yellow_rdd)
   val green_rides = countRides(green_rdd)
   println(s"Total rides yellow $yellow_rides")
   println(s"Total rides green $green_rides")
@@ -147,7 +173,130 @@ object Main extends App {
   val green_fares_by_day = fares_by_day(green_rdd, greenDropoffColumn)
   green_fares_by_day.collect().foreach(println)
 
+  val yellow_taxi_weather = join_with_weather(weather_rdd, yellow_rdd, yellowPickupColumn)
+  yellow_taxi_weather.collect().foreach(println)
+
+  val green_taxi_weather = join_with_weather(weather_rdd, green_rdd, greenPickupColumn)
+  green_taxi_weather.collect().foreach(println)*/
+
+  val yellow_with_zones = with_zones_pu_do(yellow_rdd, zones_rdd)
+  //val green_with_zones = with_zones_pu_do(green_rdd, zones_rdd)
+  //save
+
   // FUNCTIONS
+  def with_zones_pu(rides_rdd: RDD[Row], zones_rdd: RDD[(String, Number)]) = {
+
+    val keyedRides = rides_rdd.keyBy(_.getAs[Int]("PULocationID"))
+    val keyedZones = zones_rdd.map { case (zoneName, zoneId) => (zoneId.asInstanceOf[Int], zoneName) }
+
+    val joinedRDD = keyedRides.leftOuterJoin(keyedZones)
+
+    val with_pu_rdd = joinedRDD.map {
+      case (_, (rideRow, zoneNameOption)) =>
+        val zoneName = zoneNameOption.orNull
+        val rideData = rideRow.toSeq :+ zoneName
+        Row.fromSeq(rideData)
+    }
+
+    val with_pu_schema = StructType(yellow_tripdata.schema.fields :+ StructField("PULocationName", StringType, nullable = true))
+    val with_pu = spark.createDataFrame(with_pu_rdd, with_pu_schema)
+    with_pu.show()
+  }
+
+  def with_zones_pu_do(rides_rdd: RDD[Row], zones_rdd: RDD[(String, Number)]) = {
+
+    val keyedRides = rides_rdd.keyBy { rideRow =>
+      Option(rideRow.getAs[Int]("PULocationID")).getOrElse(0)
+    }
+    val keyedZones = zones_rdd.map { case (zoneName, zoneId) => (zoneId.asInstanceOf[Int], zoneName) }
+    /*val keyedZones = zones_rdd.flatMap { case (zoneName, zoneId) =>
+      if (zoneId == null) {
+        None
+      } else {
+        Some((zoneId.asInstanceOf[Int], zoneName))
+      }
+    }*/
+
+    val joinedRDD = keyedRides.leftOuterJoin(keyedZones)
+
+    val with_pu_rdd = joinedRDD.map {
+      case (_, (rideRow, zoneNameOption)) =>
+        val zoneName = zoneNameOption.getOrElse("")
+        val rideData = rideRow.toSeq :+ zoneName
+        Row.fromSeq(rideData)
+    }
+
+    val with_pu_schema = StructType(yellow_tripdata.schema.fields
+      :+ StructField("PULocationName", StringType, nullable = true))
+
+    val with_pu_df = spark.createDataFrame(with_pu_rdd, with_pu_schema)
+
+    with_pu_df.show()
+
+    val keyedRides2 = with_pu_df.rdd.keyBy{ rideRow =>
+      Option(rideRow.getAs[Int]("DOLocationID")).getOrElse(0)
+    }
+
+    val joinedRDD2 = keyedRides2.leftOuterJoin(keyedZones)
+
+    val with_pu_do_rdd = joinedRDD2.map {
+      case (_, (rideRow, zoneNameOption)) =>
+        val zoneName = zoneNameOption.getOrElse("")
+        val rideData = rideRow.toSeq :+ zoneName
+        Row.fromSeq(rideData)
+    }
+
+    val with_pu_do_schema = StructType(yellow_tripdata.schema.fields
+      :+ StructField("PULocationName", StringType, nullable = true)
+      :+ StructField("DOLocationName", StringType, nullable = true))
+
+    val with_pu_do = spark.createDataFrame(with_pu_do_rdd, with_pu_do_schema)
+
+    with_pu_do.show()
+  }
+
+  def join_with_weather(weather: RDD[Row], rides:RDD[Row], pickup_column: String)={
+    val rides_per_day = rides
+      .map(row=>{
+        val pickupTime = row.getAs[java.time.LocalDateTime](pickup_column)
+        val localDate = Date.valueOf(pickupTime.toLocalDate) // java.sql.Date
+        (localDate, 1)
+      })
+      .reduceByKey(_+_)
+
+
+    //rides_per_day.collect().foreach(println)
+
+    val weather_per_day = weather
+      .map(row =>{
+        val col1 = row.getAs[String]("time")
+        val date = try {
+          Some(Date.valueOf(LocalDate.parse(col1, dateFormatter)))
+        } catch {
+          case e: Exception => None
+        }
+        val col2 = row.getAs[Number]("precipitation_sum (mm)")
+        val col3 = row.getAs[Number]("temperature_2m_mean (°C)")
+
+        date.map(d => (d, (col2, col3)))
+      })
+      .filter(_.isDefined)
+      .map(_.get)
+
+    //weather_per_day.collect().foreach(println)
+
+    val joined_data = rides_per_day.join(weather_per_day)
+
+    val final_data = joined_data
+      .map { case (date, (ridesCount, (precipitation, temperature))) =>
+        val precip = if (precipitation != null) precipitation.doubleValue() else 0.0
+        val temp = if (temperature != null) temperature.doubleValue() else 0.0
+        (date, ridesCount, precip, temp)
+      }
+      .sortBy(x => x._1.getDate)
+
+    final_data
+  }
 
   def fares_by_day(rides: RDD[Row], column: String):RDD[(LocalDate, Double)] = {
     val fares: RDD[(LocalDate, Double)] = rides
