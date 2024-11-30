@@ -179,11 +179,31 @@ object Main extends App {
   val green_taxi_weather = join_with_weather(weather_rdd, green_rdd, greenPickupColumn)
   green_taxi_weather.collect().foreach(println)*/
 
-  val yellow_with_zones = with_zones_pu_do(yellow_rdd, zones_rdd)
-  //val green_with_zones = with_zones_pu_do(green_rdd, zones_rdd)
+  //val yellow_with_zones = with_zones_pu_do(yellow_rdd, zones_rdd)
+  //val green_with_zones = with_zones_pu(green_rdd, zones_rdd)
   //save
 
+//  val yellow_peak_hour = get_peak_hours(yellow_rdd, yellowDropoffColumn)
+//  yellow_peak_hour.collect().foreach(println)
+//
+//  val green_peak_hour = get_peak_hours(green_rdd, greenDropoffColumn)
+//  green_peak_hour.collect().foreach(println)
+
+
+
   // FUNCTIONS
+
+  def get_peak_hours(rides: RDD[Row], column: String): RDD[(Int, Int)] = {
+    val tips: RDD[(Int, Int)] = rides
+      .map(row => {
+        val col1 = row.getAs[java.time.LocalDateTime](column).toLocalTime.getHour.intValue()
+        val col2 = 1
+        (col1, col2)
+      }).reduceByKey(_ + _).sortBy(_._2, ascending = false)
+    tips
+  }
+
+
   def with_zones_pu(rides_rdd: RDD[Row], zones_rdd: RDD[(String, Number)]) = {
 
     val keyedRides = rides_rdd.keyBy(_.getAs[Int]("PULocationID"))
@@ -199,6 +219,8 @@ object Main extends App {
     }
 
     val with_pu_schema = StructType(yellow_tripdata.schema.fields :+ StructField("PULocationName", StringType, nullable = true))
+    with_pu_rdd.take(10).foreach(println)
+    println(with_pu_schema.prettyJson)
     val with_pu = spark.createDataFrame(with_pu_rdd, with_pu_schema)
     with_pu.show()
   }
