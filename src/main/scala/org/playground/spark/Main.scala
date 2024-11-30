@@ -20,7 +20,7 @@ object Main extends App {
   val yellowTripDataPath = "C:\\Users\\elena\\Desktop\\NYCdata\\yellow_tripdata_2024-02.parquet"
   val greenTripDataPath = "C:\\Users\\elena\\Desktop\\NYCdata\\green_tripdata_2024-02.parquet"
   val weatherDataPath = "C:\\Users\\elena\\Desktop\\NYCdata\\open-meteo-40.74N74.04W27m.csv"
-  val zoneDataPath =  "C:\\Users\\elena\\Desktop\\NYCdata\\taxi_zones.csv"
+  val zoneDataPath = "C:\\Users\\elena\\Desktop\\NYCdata\\taxi_zones.csv"
   val dateFormatter = DateTimeFormatter.ofPattern("M/d/yyyy")
 
   val yellowPickupColumn = "tpep_pickup_datetime"
@@ -109,89 +109,118 @@ object Main extends App {
   val weather_rdd = weather_data.rdd //.zipWithIndex().filter{ case (_, index) => index>=2 }.map(_._1)
   val zones_rdd = zone_data
     .rdd
-    .map(row=>{
+    .map(row => {
       val col1 = row.getAs[String]("zone")
       val col2 = row.getAs[Number]("LocationID")
       (col1, col2)
     })
 
 
- /* val yellow_rides = countRides(yellow_rdd)
-  val green_rides = countRides(green_rdd)
-  println(s"Total rides yellow $yellow_rides")
-  println(s"Total rides green $green_rides")
+  /* val yellow_rides = countRides(yellow_rdd)
+   val green_rides = countRides(green_rdd)
+   println(s"Total rides yellow $yellow_rides")
+   println(s"Total rides green $green_rides")
 
-  val yellow_times = earliest_latest_ride(yellow_rdd, yellowPickupColumn, yellowDropoffColumn)
-  println(s"Yellow earliest pickup: ${yellow_times._1}")
-  println(s"Yellow latest dropoff: ${yellow_times._2}")
+   val yellow_times = earliest_latest_ride(yellow_rdd, yellowPickupColumn, yellowDropoffColumn)
+   println(s"Yellow earliest pickup: ${yellow_times._1}")
+   println(s"Yellow latest dropoff: ${yellow_times._2}")
 
-  val green_times = earliest_latest_ride(green_rdd, greenPickupColumn, greenDropoffColumn)
-  println(s"Green earliest pickup: ${green_times._1}")
-  println(s"Green latest dropoff: ${green_times._2}")
+   val green_times = earliest_latest_ride(green_rdd, greenPickupColumn, greenDropoffColumn)
+   println(s"Green earliest pickup: ${green_times._1}")
+   println(s"Green latest dropoff: ${green_times._2}")
 
-  val yellow_passenger_count = passenger_count(yellow_rdd)
-  println(s"Yellow total passengers: ${yellow_passenger_count}")
-  val green_passenger_count = passenger_count(green_rdd)
-  println(s"Green total passengers: ${green_passenger_count}")
+   val yellow_passenger_count = passenger_count(yellow_rdd)
+   println(s"Yellow total passengers: ${yellow_passenger_count}")
+   val green_passenger_count = passenger_count(green_rdd)
+   println(s"Green total passengers: ${green_passenger_count}")
 
-  val yellow_short_rides = short_rides_count(yellow_rdd)
-  println(s"Yellow short rides count: ${yellow_short_rides}")
-  val green_short_rides = short_rides_count(green_rdd)
-  println(s"Green short rides count: ${green_short_rides}")
+   val yellow_short_rides = short_rides_count(yellow_rdd)
+   println(s"Yellow short rides count: ${yellow_short_rides}")
+   val green_short_rides = short_rides_count(green_rdd)
+   println(s"Green short rides count: ${green_short_rides}")
 
-  val yellow_rides_per_type = rides_per_type(yellow_rdd)
-  yellow_rides_per_type.collect().foreach(println)
+   val yellow_rides_per_type = rides_per_type(yellow_rdd)
+   yellow_rides_per_type.collect().foreach(println)
 
-  val green_rides_per_type = rides_per_type(green_rdd)
-  green_rides_per_type.collect().foreach(println)
+   val green_rides_per_type = rides_per_type(green_rdd)
+   green_rides_per_type.collect().foreach(println)
 
-  val yellow_shortest_longest_ride = shortest_longest_ride(yellow_rdd)
-  println(s"Yellow shortest ride: ${yellow_shortest_longest_ride._1}")
-  println(s"Yellow longest_ride: ${yellow_shortest_longest_ride._2}")
+   val yellow_shortest_longest_ride = shortest_longest_ride(yellow_rdd)
+   println(s"Yellow shortest ride: ${yellow_shortest_longest_ride._1}")
+   println(s"Yellow longest_ride: ${yellow_shortest_longest_ride._2}")
 
-  val green_shortest_longest_ride = shortest_longest_ride(green_rdd)
-  println(s"Green shortest ride: ${green_shortest_longest_ride._1}")
-  println(s"Green longest_ride: ${green_shortest_longest_ride._2}")
+   val green_shortest_longest_ride = shortest_longest_ride(green_rdd)
+   println(s"Green shortest ride: ${green_shortest_longest_ride._1}")
+   println(s"Green longest_ride: ${green_shortest_longest_ride._2}")
 
-  val yellow_average_speed = average_duration(yellow_rdd, yellowPickupColumn, yellowDropoffColumn)
-  println(s"Yellow average speed: ${yellow_average_speed} miles/hour")
-  val green_average_speed = average_duration(green_rdd, greenPickupColumn, greenDropoffColumn)
-  println(s"Green average speed: ${green_average_speed} miles/hour")
+   val yellow_average_speed = average_duration(yellow_rdd, yellowPickupColumn, yellowDropoffColumn)
+   println(s"Yellow average speed: ${yellow_average_speed} miles/hour")
+   val green_average_speed = average_duration(green_rdd, greenPickupColumn, greenDropoffColumn)
+   println(s"Green average speed: ${green_average_speed} miles/hour")
 
-  val yellow_rides_per_hour = rides_per_hour(yellow_rdd, yellowPickupColumn)
-  yellow_rides_per_hour.collect().foreach(println)
-  val green_rides_per_hour = rides_per_hour(green_rdd, greenPickupColumn)
-  green_rides_per_hour.collect().foreach(println)
+   val yellow_rides_per_hour = rides_per_hour(yellow_rdd, yellowPickupColumn)
+   yellow_rides_per_hour.collect().foreach(println)
+   val green_rides_per_hour = rides_per_hour(green_rdd, greenPickupColumn)
+   green_rides_per_hour.collect().foreach(println)
 
-  val yellow_max_tip_by_vendor = max_tip_by_vendor(yellow_rdd)
-  yellow_max_tip_by_vendor.collect().foreach(println)
-  val green_max_tip_by_vendor = max_tip_by_vendor(green_rdd)
-  green_max_tip_by_vendor.collect().foreach(println)
+   val yellow_max_tip_by_vendor = max_tip_by_vendor(yellow_rdd)
+   yellow_max_tip_by_vendor.collect().foreach(println)
+   val green_max_tip_by_vendor = max_tip_by_vendor(green_rdd)
+   green_max_tip_by_vendor.collect().foreach(println)
 
-  val yellow_fares_by_day = fares_by_day(yellow_rdd, yellowDropoffColumn)
-  yellow_fares_by_day.collect().foreach(println)
-  val green_fares_by_day = fares_by_day(green_rdd, greenDropoffColumn)
-  green_fares_by_day.collect().foreach(println)
+   val yellow_fares_by_day = fares_by_day(yellow_rdd, yellowDropoffColumn)
+   yellow_fares_by_day.collect().foreach(println)
+   val green_fares_by_day = fares_by_day(green_rdd, greenDropoffColumn)
+   green_fares_by_day.collect().foreach(println)
 
-  val yellow_taxi_weather = join_with_weather(weather_rdd, yellow_rdd, yellowPickupColumn)
-  yellow_taxi_weather.collect().foreach(println)
+   val yellow_taxi_weather = join_with_weather(weather_rdd, yellow_rdd, yellowPickupColumn)
+   yellow_taxi_weather.collect().foreach(println)
 
-  val green_taxi_weather = join_with_weather(weather_rdd, green_rdd, greenPickupColumn)
-  green_taxi_weather.collect().foreach(println)*/
+   val green_taxi_weather = join_with_weather(weather_rdd, green_rdd, greenPickupColumn)
+   green_taxi_weather.collect().foreach(println)*/
 
   //val yellow_with_zones = with_zones_pu_do(yellow_rdd, zones_rdd)
   //val green_with_zones = with_zones_pu(green_rdd, zones_rdd)
   //save
 
-//  val yellow_peak_hour = get_peak_hours(yellow_rdd, yellowDropoffColumn)
-//  yellow_peak_hour.collect().foreach(println)
-//
-//  val green_peak_hour = get_peak_hours(green_rdd, greenDropoffColumn)
-//  green_peak_hour.collect().foreach(println)
+  //  val yellow_peak_hour = get_peak_hours(yellow_rdd, yellowDropoffColumn)
+  //  yellow_peak_hour.collect().foreach(println)
+  //
+  //  val green_peak_hour = get_peak_hours(green_rdd, greenDropoffColumn)
+  //  green_peak_hour.collect().foreach(println)
 
+  val yellow_tips_by_zone = tips_by_zone(yellow_rdd, zones_rdd)
+  yellow_tips_by_zone.collect().foreach(println)
+
+  val green_tips_by_zone = tips_by_zone(green_rdd, zones_rdd)
+  green_tips_by_zone.collect().foreach(println)
 
 
   // FUNCTIONS
+
+
+  def tips_by_zone(rides_rdd: RDD[Row], zones_rdd: RDD[(String, Number)]): RDD[(Int, String, Double)] = {
+    val keyedRides = rides_rdd.map(row => {
+      val col1 = row.getAs[Int]("PULocationID")
+      val col2 = row.getAs[Double]("tip_amount")
+      (col1, col2)
+    }).reduceByKey(_ + _)
+
+    val keyedZones = zones_rdd.map { case (zoneName, zoneId) => (zoneId.asInstanceOf[Int], zoneName) }
+
+    val joinedRDD = keyedRides.leftOuterJoin(keyedZones)
+
+    val zones_with_tips = joinedRDD.map {
+      case (id, (tipAmount, zoneNameOption)) =>
+        val zoneName = zoneNameOption.orNull
+        (id.asInstanceOf[Int], zoneName, tipAmount)
+    }
+
+    val zones_with_tips_sorted = zones_with_tips.sortBy(_._1)
+    zones_with_tips_sorted
+
+  }
+
 
   def get_peak_hours(rides: RDD[Row], column: String): RDD[(Int, Int)] = {
     val tips: RDD[(Int, Int)] = rides
@@ -202,7 +231,6 @@ object Main extends App {
       }).reduceByKey(_ + _).sortBy(_._2, ascending = false)
     tips
   }
-
 
   def with_zones_pu(rides_rdd: RDD[Row], zones_rdd: RDD[(String, Number)]) = {
 
@@ -255,7 +283,7 @@ object Main extends App {
 
     with_pu_df.show()
 
-    val keyedRides2 = with_pu_df.rdd.keyBy{ rideRow =>
+    val keyedRides2 = with_pu_df.rdd.keyBy { rideRow =>
       Option(rideRow.getAs[Int]("DOLocationID")).getOrElse(0)
     }
 
@@ -277,20 +305,20 @@ object Main extends App {
     with_pu_do.show()
   }
 
-  def join_with_weather(weather: RDD[Row], rides:RDD[Row], pickup_column: String)={
+  def join_with_weather(weather: RDD[Row], rides: RDD[Row], pickup_column: String) = {
     val rides_per_day = rides
-      .map(row=>{
+      .map(row => {
         val pickupTime = row.getAs[java.time.LocalDateTime](pickup_column)
         val localDate = Date.valueOf(pickupTime.toLocalDate) // java.sql.Date
         (localDate, 1)
       })
-      .reduceByKey(_+_)
+      .reduceByKey(_ + _)
 
 
     //rides_per_day.collect().foreach(println)
 
     val weather_per_day = weather
-      .map(row =>{
+      .map(row => {
         val col1 = row.getAs[String]("time")
         val date = try {
           Some(Date.valueOf(LocalDate.parse(col1, dateFormatter)))
@@ -320,17 +348,17 @@ object Main extends App {
     final_data
   }
 
-  def fares_by_day(rides: RDD[Row], column: String):RDD[(LocalDate, Double)] = {
+  def fares_by_day(rides: RDD[Row], column: String): RDD[(LocalDate, Double)] = {
     val fares: RDD[(LocalDate, Double)] = rides
       .map(row => (row.getAs[java.time.LocalDateTime](column).toLocalDate, row.getAs[Number]("fare_amount").doubleValue()))
-      .reduceByKey(_+_)
+      .reduceByKey(_ + _)
     fares.sortBy(x => x._1.getDayOfMonth)
   }
 
   def max_tip_by_vendor(rides: RDD[Row]) = {
     val tips: RDD[(Number, Double)] = rides
       .map(row => (row.getAs[Number]("VendorID"), row.getAs[Number]("tip_amount").doubleValue()))
-      .reduceByKey((a, b)=> math.max(a,b))
+      .reduceByKey((a, b) => math.max(a, b))
     tips
   }
 
