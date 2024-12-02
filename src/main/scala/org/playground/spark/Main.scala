@@ -2,7 +2,7 @@ package org.playground.spark
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions.{col, unix_timestamp, _}
-import org.apache.spark.sql.types.{DataTypes, IntegerType, StringType, StructField, StructType}
+import org.apache.spark.sql.types.{DataTypes, DateType, DoubleType, IntegerType, LongType, StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
 import java.sql.Date
@@ -48,12 +48,39 @@ object Main extends App {
   val averagesYellowPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\avgs_yellow"
   val averagesGreenPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\avgs_green"
 
+  val ridesByPaymentYellowPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\rides_by_paymeny_yellow"
+  val ridesByPaymentGreenPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\rides_by_payment_green"
+
+  val ridesByHourYellowPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\rides_by_hour_yellow"
+  val ridesByHourGreenPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\rides_by_hour_green"
+
+  val maxTipByVendorYellowPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\max_tip_by_vendor_yellow"
+  val maxTipByVendorGreenPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\max_tip_by_vendor_green"
+
+  val totalFaresByDayYellowPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\fares_by_day_yellow"
+  val totalFaresByDayGreenPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\fares_by_day_green"
+
+  val ridesWithWeatherYellowPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\rides_with_weather_yellow"
+  val ridesWithWeatherGreenPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\rides_with_weather_green"
+
+  val ridesWithZoneNamesYellowPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\rides_with_zone_names_yellow"
+  val ridesWithZoneNamesGreenPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\rides_with_zone_names_green"
+
+  val peakHoursYellowPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\peak_hour_yellow"
+  val peakHoursGreenPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\peak_hour_green"
+
+  val tipsByZoneYellowPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\tips_by_zone_yellow"
+  val tipsByZoneGreenPath = "C:\\Users\\elena\\IdeaProjects\\spark-playground\\outputs\\tips_by_zone_green"
+
 
   // LOADING
   val yellow_tripdata: DataFrame = spark.read
     .parquet(yellowTripDataPath)
   val green_tripdata: DataFrame = spark.read
     .parquet(greenTripDataPath)
+
+  val yellow_schema = StructType(yellow_tripdata.schema.fields)
+  val green_schema = StructType(green_tripdata.schema.fields)
 
   val weather_data: DataFrame = spark.read
     .option("header", "true")
@@ -71,37 +98,36 @@ object Main extends App {
 
   // MAIN2
 
-  /*  val avgTicketPrices = avg_ticket_price(yellow_tripdata, green_tripdata)
-     writeToParquet(avgTicketPrices, ticketAveragesPath)
+  val avgTicketPrices = avg_ticket_price(yellow_tripdata, green_tripdata)
+  writeToParquet(avgTicketPrices, ticketAveragesPath)
 
-    val (paymentMethodsYellow, paymentMethodsGreen ) = top_payment_methods(yellow_tripdata, green_tripdata)
-    writeToParquet(paymentMethodsYellow, paymentMethodsYellowPath)
-    writeToParquet(paymentMethodsGreen, paymentMethodsGreenPath)
+  val (paymentMethodsYellow, paymentMethodsGreen) = top_payment_methods(yellow_tripdata, green_tripdata)
+  writeToParquet(paymentMethodsYellow, paymentMethodsYellowPath)
+  writeToParquet(paymentMethodsGreen, paymentMethodsGreenPath)
 
-    val (unusualTripsY, unusualTripsG) = passenger_analysis(yellow_tripdata, green_tripdata)
-    writeToParquet(unusualTripsY, unusualTripsYellowPath)
-    writeToParquet(unusualTripsG, unusualTripsGreenPath)
+  val (unusualTripsY, unusualTripsG) = passenger_analysis(yellow_tripdata, green_tripdata)
+  writeToParquet(unusualTripsY, unusualTripsYellowPath)
+  writeToParquet(unusualTripsG, unusualTripsGreenPath)
 
-    val top10LocsYellow = most_traffic(yellow_tripdata)
-    writeToParquet(top10LocsYellow, top10LocsYellowPath)
-    val top10LocsGreen = most_traffic(green_tripdata)
-    writeToParquet(top10LocsGreen, top10LocsGreenPath)
+  val top10LocsYellow = most_traffic(yellow_tripdata)
+  writeToParquet(top10LocsYellow, top10LocsYellowPath)
+  val top10LocsGreen = most_traffic(green_tripdata)
+  writeToParquet(top10LocsGreen, top10LocsGreenPath)
 
-    var hourlyAveragesYellow = hourly_avgs_yellow(yellow_tripdata)
-    writeToParquet(hourlyAveragesYellow, hourlyAveragesYellowPath)
-    var hourlyAveragesGreen = hourly_avgs_green(green_tripdata)
-    writeToParquet(hourlyAveragesGreen, hourlyAveragesGreenPath)
+  var hourlyAveragesYellow = hourly_avgs_yellow(yellow_tripdata)
+  writeToParquet(hourlyAveragesYellow, hourlyAveragesYellowPath)
+  var hourlyAveragesGreen = hourly_avgs_green(green_tripdata)
+  writeToParquet(hourlyAveragesGreen, hourlyAveragesGreenPath)
 
-    var weeklyAveragesYellow = weekly_avgs_yellow(yellow_tripdata)
-    writeToParquet(weeklyAveragesYellow, weeklyAvgsYellowPath)
-    var weeklyAveragesGreen = weekly_avgs_green(green_tripdata)
-    writeToParquet(weeklyAveragesGreen, weeklyAvgsGreenPath)
+  var weeklyAveragesYellow = weekly_avgs_yellow(yellow_tripdata)
+  writeToParquet(weeklyAveragesYellow, weeklyAvgsYellowPath)
+  var weeklyAveragesGreen = weekly_avgs_green(green_tripdata)
+  writeToParquet(weeklyAveragesGreen, weeklyAvgsGreenPath)
 
-    var averagesYellow = avgs_yellow(yellow_tripdata)
-    writeToParquet(averagesYellow, averagesYellowPath)
-    var averagesGreen = avgs_green(green_tripdata)
-    writeToParquet(averagesGreen, averagesGreenPath)
-  */
+  var averagesYellow = avgs_yellow(yellow_tripdata)
+  writeToParquet(averagesYellow, averagesYellowPath)
+  var averagesGreen = avgs_green(green_tripdata)
+  writeToParquet(averagesGreen, averagesGreenPath)
 
 
   val yellow_rdd = yellow_tripdata.rdd
@@ -116,90 +142,90 @@ object Main extends App {
     })
 
 
-  /* val yellow_rides = countRides(yellow_rdd)
-   val green_rides = countRides(green_rdd)
-   println(s"Total rides yellow $yellow_rides")
-   println(s"Total rides green $green_rides")
+  val yellow_rides = countRides(yellow_rdd)
+  val green_rides = countRides(green_rdd)
+  println(s"Total rides yellow $yellow_rides")
+  println(s"Total rides green $green_rides")
 
-   val yellow_times = earliest_latest_ride(yellow_rdd, yellowPickupColumn, yellowDropoffColumn)
-   println(s"Yellow earliest pickup: ${yellow_times._1}")
-   println(s"Yellow latest dropoff: ${yellow_times._2}")
+  val yellow_times = earliest_latest_ride(yellow_rdd, yellowPickupColumn, yellowDropoffColumn)
+  println(s"Yellow earliest pickup: ${yellow_times._1}")
+  println(s"Yellow latest dropoff: ${yellow_times._2}")
 
-   val green_times = earliest_latest_ride(green_rdd, greenPickupColumn, greenDropoffColumn)
-   println(s"Green earliest pickup: ${green_times._1}")
-   println(s"Green latest dropoff: ${green_times._2}")
+  val green_times = earliest_latest_ride(green_rdd, greenPickupColumn, greenDropoffColumn)
+  println(s"Green earliest pickup: ${green_times._1}")
+  println(s"Green latest dropoff: ${green_times._2}")
 
-   val yellow_passenger_count = passenger_count(yellow_rdd)
-   println(s"Yellow total passengers: ${yellow_passenger_count}")
-   val green_passenger_count = passenger_count(green_rdd)
-   println(s"Green total passengers: ${green_passenger_count}")
+  val yellow_passenger_count = passenger_count(yellow_rdd)
+  println(s"Yellow total passengers: ${yellow_passenger_count}")
+  val green_passenger_count = passenger_count(green_rdd)
+  println(s"Green total passengers: ${green_passenger_count}")
 
-   val yellow_short_rides = short_rides_count(yellow_rdd)
-   println(s"Yellow short rides count: ${yellow_short_rides}")
-   val green_short_rides = short_rides_count(green_rdd)
-   println(s"Green short rides count: ${green_short_rides}")
+  val yellow_short_rides = short_rides_count(yellow_rdd)
+  println(s"Yellow short rides count: ${yellow_short_rides}")
+  val green_short_rides = short_rides_count(green_rdd)
+  println(s"Green short rides count: ${green_short_rides}")
 
-   val yellow_rides_per_type = rides_per_type(yellow_rdd)
-   yellow_rides_per_type.collect().foreach(println)
+  val yellow_rides_per_type = rides_per_type(yellow_rdd, ridesByPaymentYellowPath)
+  yellow_rides_per_type.collect().foreach(println)
 
-   val green_rides_per_type = rides_per_type(green_rdd)
-   green_rides_per_type.collect().foreach(println)
+  val green_rides_per_type = rides_per_type(green_rdd, ridesByPaymentGreenPath)
+  green_rides_per_type.collect().foreach(println)
 
-   val yellow_shortest_longest_ride = shortest_longest_ride(yellow_rdd)
-   println(s"Yellow shortest ride: ${yellow_shortest_longest_ride._1}")
-   println(s"Yellow longest_ride: ${yellow_shortest_longest_ride._2}")
+  val yellow_shortest_longest_ride = shortest_longest_ride(yellow_rdd)
+  println(s"Yellow shortest ride: ${yellow_shortest_longest_ride._1}")
+  println(s"Yellow longest_ride: ${yellow_shortest_longest_ride._2}")
 
-   val green_shortest_longest_ride = shortest_longest_ride(green_rdd)
-   println(s"Green shortest ride: ${green_shortest_longest_ride._1}")
-   println(s"Green longest_ride: ${green_shortest_longest_ride._2}")
+  val green_shortest_longest_ride = shortest_longest_ride(green_rdd)
+  println(s"Green shortest ride: ${green_shortest_longest_ride._1}")
+  println(s"Green longest_ride: ${green_shortest_longest_ride._2}")
 
-   val yellow_average_speed = average_duration(yellow_rdd, yellowPickupColumn, yellowDropoffColumn)
-   println(s"Yellow average speed: ${yellow_average_speed} miles/hour")
-   val green_average_speed = average_duration(green_rdd, greenPickupColumn, greenDropoffColumn)
-   println(s"Green average speed: ${green_average_speed} miles/hour")
+  val yellow_average_speed = average_duration(yellow_rdd, yellowPickupColumn, yellowDropoffColumn)
+  println(s"Yellow average speed: ${yellow_average_speed} miles/hour")
+  val green_average_speed = average_duration(green_rdd, greenPickupColumn, greenDropoffColumn)
+  println(s"Green average speed: ${green_average_speed} miles/hour")
 
-   val yellow_rides_per_hour = rides_per_hour(yellow_rdd, yellowPickupColumn)
-   yellow_rides_per_hour.collect().foreach(println)
-   val green_rides_per_hour = rides_per_hour(green_rdd, greenPickupColumn)
-   green_rides_per_hour.collect().foreach(println)
+  val yellow_rides_per_hour = rides_per_hour(yellow_rdd, yellowPickupColumn, ridesByHourYellowPath)
+  yellow_rides_per_hour.collect().foreach(println)
+  val green_rides_per_hour = rides_per_hour(green_rdd, greenPickupColumn, ridesByHourGreenPath)
+  green_rides_per_hour.collect().foreach(println)
 
-   val yellow_max_tip_by_vendor = max_tip_by_vendor(yellow_rdd)
-   yellow_max_tip_by_vendor.collect().foreach(println)
-   val green_max_tip_by_vendor = max_tip_by_vendor(green_rdd)
-   green_max_tip_by_vendor.collect().foreach(println)
+  val yellow_max_tip_by_vendor = max_tip_by_vendor(yellow_rdd, maxTipByVendorYellowPath)
+  yellow_max_tip_by_vendor.collect().foreach(println)
+  val green_max_tip_by_vendor = max_tip_by_vendor(green_rdd, maxTipByVendorGreenPath)
+  green_max_tip_by_vendor.collect().foreach(println)
 
-   val yellow_fares_by_day = fares_by_day(yellow_rdd, yellowDropoffColumn)
-   yellow_fares_by_day.collect().foreach(println)
-   val green_fares_by_day = fares_by_day(green_rdd, greenDropoffColumn)
-   green_fares_by_day.collect().foreach(println)
+  val yellow_fares_by_day = fares_by_day(yellow_rdd, yellowDropoffColumn, totalFaresByDayYellowPath)
+  yellow_fares_by_day.collect().foreach(println)
+  val green_fares_by_day = fares_by_day(green_rdd, greenDropoffColumn, totalFaresByDayGreenPath)
+  green_fares_by_day.collect().foreach(println)
 
-   val yellow_taxi_weather = join_with_weather(weather_rdd, yellow_rdd, yellowPickupColumn)
-   yellow_taxi_weather.collect().foreach(println)
+  val yellow_taxi_weather = join_with_weather(weather_rdd, yellow_rdd, yellowPickupColumn, ridesWithWeatherYellowPath)
+  yellow_taxi_weather.collect().foreach(println)
 
-   val green_taxi_weather = join_with_weather(weather_rdd, green_rdd, greenPickupColumn)
-   green_taxi_weather.collect().foreach(println)*/
+  val green_taxi_weather = join_with_weather(weather_rdd, green_rdd, greenPickupColumn, ridesWithWeatherGreenPath)
+  green_taxi_weather.collect().foreach(println)
 
-  //val yellow_with_zones = with_zones_pu_do(yellow_rdd, zones_rdd)
-  //val green_with_zones = with_zones_pu(green_rdd, zones_rdd)
-  //save
+  val yellow_with_zones = with_zones_pu_do(yellow_rdd, zones_rdd, yellow_schema, ridesWithZoneNamesYellowPath)
+  val green_with_zones = with_zones_pu_do(green_rdd, zones_rdd, green_schema, ridesWithZoneNamesGreenPath)
 
-  //  val yellow_peak_hour = get_peak_hours(yellow_rdd, yellowDropoffColumn)
-  //  yellow_peak_hour.collect().foreach(println)
-  //
-  //  val green_peak_hour = get_peak_hours(green_rdd, greenDropoffColumn)
-  //  green_peak_hour.collect().foreach(println)
 
-  val yellow_tips_by_zone = tips_by_zone(yellow_rdd, zones_rdd)
+  val yellow_peak_hour = get_peak_hours(yellow_rdd, yellowDropoffColumn, peakHoursYellowPath)
+  yellow_peak_hour.collect().foreach(println)
+
+  val green_peak_hour = get_peak_hours(green_rdd, greenDropoffColumn, peakHoursGreenPath)
+  green_peak_hour.collect().foreach(println)
+
+  val yellow_tips_by_zone = tips_by_zone(yellow_rdd, zones_rdd, tipsByZoneYellowPath)
   yellow_tips_by_zone.collect().foreach(println)
 
-  val green_tips_by_zone = tips_by_zone(green_rdd, zones_rdd)
+  val green_tips_by_zone = tips_by_zone(green_rdd, zones_rdd, tipsByZoneGreenPath)
   green_tips_by_zone.collect().foreach(println)
 
 
   // FUNCTIONS
 
 
-  def tips_by_zone(rides_rdd: RDD[Row], zones_rdd: RDD[(String, Number)]): RDD[(Int, String, Double)] = {
+  def tips_by_zone(rides_rdd: RDD[Row], zones_rdd: RDD[(String, Number)], path: String): RDD[(Int, String, Double)] = {
     val keyedRides = rides_rdd.map(row => {
       val col1 = row.getAs[Int]("PULocationID")
       val col2 = row.getAs[Double]("tip_amount")
@@ -217,55 +243,61 @@ object Main extends App {
     }
 
     val zones_with_tips_sorted = zones_with_tips.sortBy(_._1)
+
+
+    val schema = StructType(List(
+      StructField("zone_id", IntegerType, nullable = true),
+      StructField("zone_name", StringType, nullable = true),
+      StructField("total_tips", DoubleType, nullable = true),
+    ))
+
+    val df = spark.createDataFrame(
+      zones_with_tips_sorted.map {
+        case (id, name, total) => Row(id, name, total)
+      }, schema)
+
+    writeToParquet(df, path)
+
+    val df1 = spark.read.parquet(path)
+    df1.show()
     zones_with_tips_sorted
 
   }
 
 
-  def get_peak_hours(rides: RDD[Row], column: String): RDD[(Int, Int)] = {
-    val tips: RDD[(Int, Int)] = rides
+  def get_peak_hours(rides: RDD[Row], column: String, path: String): RDD[(Int, Int)] = {
+    val r1: RDD[(Int, Int)] = rides
       .map(row => {
         val col1 = row.getAs[java.time.LocalDateTime](column).toLocalTime.getHour.intValue()
         val col2 = 1
         (col1, col2)
       }).reduceByKey(_ + _).sortBy(_._2, ascending = false)
-    tips
+
+    val schema = StructType(List(
+      StructField("hour", IntegerType, nullable = true),
+      StructField("total_rides", IntegerType, nullable = true),
+    ))
+
+    val df = spark.createDataFrame(
+      r1.map {
+        case (hour, cnt) => Row(hour, cnt)
+      }, schema)
+
+    writeToParquet(df, path)
+
+    val df1 = spark.read.parquet(path)
+    df1.show()
+
+    r1
   }
 
-  def with_zones_pu(rides_rdd: RDD[Row], zones_rdd: RDD[(String, Number)]) = {
 
-    val keyedRides = rides_rdd.keyBy(_.getAs[Int]("PULocationID"))
-    val keyedZones = zones_rdd.map { case (zoneName, zoneId) => (zoneId.asInstanceOf[Int], zoneName) }
-
-    val joinedRDD = keyedRides.leftOuterJoin(keyedZones)
-
-    val with_pu_rdd = joinedRDD.map {
-      case (_, (rideRow, zoneNameOption)) =>
-        val zoneName = zoneNameOption.orNull
-        val rideData = rideRow.toSeq :+ zoneName
-        Row.fromSeq(rideData)
-    }
-
-    val with_pu_schema = StructType(yellow_tripdata.schema.fields :+ StructField("PULocationName", StringType, nullable = true))
-    with_pu_rdd.take(10).foreach(println)
-    println(with_pu_schema.prettyJson)
-    val with_pu = spark.createDataFrame(with_pu_rdd, with_pu_schema)
-    with_pu.show()
-  }
-
-  def with_zones_pu_do(rides_rdd: RDD[Row], zones_rdd: RDD[(String, Number)]) = {
+  def with_zones_pu_do(rides_rdd: RDD[Row], zones_rdd: RDD[(String, Number)], schema: StructType, path: String) = {
 
     val keyedRides = rides_rdd.keyBy { rideRow =>
       Option(rideRow.getAs[Int]("PULocationID")).getOrElse(0)
     }
     val keyedZones = zones_rdd.map { case (zoneName, zoneId) => (zoneId.asInstanceOf[Int], zoneName) }
-    /*val keyedZones = zones_rdd.flatMap { case (zoneName, zoneId) =>
-      if (zoneId == null) {
-        None
-      } else {
-        Some((zoneId.asInstanceOf[Int], zoneName))
-      }
-    }*/
 
     val joinedRDD = keyedRides.leftOuterJoin(keyedZones)
 
@@ -276,7 +308,7 @@ object Main extends App {
         Row.fromSeq(rideData)
     }
 
-    val with_pu_schema = StructType(yellow_tripdata.schema.fields
+    val with_pu_schema = StructType(schema
       :+ StructField("PULocationName", StringType, nullable = true))
 
     val with_pu_df = spark.createDataFrame(with_pu_rdd, with_pu_schema)
@@ -296,26 +328,26 @@ object Main extends App {
         Row.fromSeq(rideData)
     }
 
-    val with_pu_do_schema = StructType(yellow_tripdata.schema.fields
+    val with_pu_do_schema = StructType(schema
       :+ StructField("PULocationName", StringType, nullable = true)
       :+ StructField("DOLocationName", StringType, nullable = true))
 
     val with_pu_do = spark.createDataFrame(with_pu_do_rdd, with_pu_do_schema)
 
-    with_pu_do.show()
+    writeToParquet(with_pu_do, path)
+    val df1 = spark.read.parquet(path)
+    df1.show()
+
   }
 
-  def join_with_weather(weather: RDD[Row], rides: RDD[Row], pickup_column: String) = {
-    val rides_per_day = rides
+  def join_with_weather(weather: RDD[Row], rides: RDD[Row], pickup_column: String, path: String) = {
+    val rides_per_day: RDD[(Date, Int)] = rides
       .map(row => {
         val pickupTime = row.getAs[java.time.LocalDateTime](pickup_column)
         val localDate = Date.valueOf(pickupTime.toLocalDate) // java.sql.Date
         (localDate, 1)
       })
       .reduceByKey(_ + _)
-
-
-    //rides_per_day.collect().foreach(println)
 
     val weather_per_day = weather
       .map(row => {
@@ -333,7 +365,6 @@ object Main extends App {
       .filter(_.isDefined)
       .map(_.get)
 
-    //weather_per_day.collect().foreach(println)
 
     val joined_data = rides_per_day.join(weather_per_day)
 
@@ -341,34 +372,106 @@ object Main extends App {
       .map { case (date, (ridesCount, (precipitation, temperature))) =>
         val precip = if (precipitation != null) precipitation.doubleValue() else 0.0
         val temp = if (temperature != null) temperature.doubleValue() else 0.0
-        (date, ridesCount, precip, temp)
+        (date, ridesCount.intValue(), precip, temp)
       }
-      .sortBy(x => x._1.getDate)
+      //.sortBy(x => x._1.getDate)
+      .sortBy(x => x._2)
+
+
+    val schema = StructType(List(
+      StructField("date", DateType, nullable = true),
+      StructField("total_rides", IntegerType, nullable = true),
+      StructField("precipitation_sum (mm)", DoubleType, nullable = true),
+      StructField("temperature_2m_mean (°C)", DoubleType, nullable = true)
+    ))
+
+    val df = spark.createDataFrame(
+      final_data.map {
+        case (date, cnt, pre, temp) => Row(date, cnt, pre, temp)
+      }, schema)
+
+    writeToParquet(df, path)
+
+    val df1 = spark.read.parquet(path)
+    df1.show()
 
     final_data
   }
 
-  def fares_by_day(rides: RDD[Row], column: String): RDD[(LocalDate, Double)] = {
+  def fares_by_day(rides: RDD[Row], column: String, path: String): RDD[(LocalDate, Double)] = {
     val fares: RDD[(LocalDate, Double)] = rides
       .map(row => (row.getAs[java.time.LocalDateTime](column).toLocalDate, row.getAs[Number]("fare_amount").doubleValue()))
       .reduceByKey(_ + _)
-    fares.sortBy(x => x._1.getDayOfMonth)
+    val fares_sorted = fares.filter(x => Date.valueOf(x._1).getMonth == 1 && Date.valueOf(x._1).getYear == 2024 - 1900).sortBy(x => x._1.getDayOfMonth)
+
+
+    val schema = StructType(List(
+      StructField("date", DateType, nullable = true),
+      StructField("total_fares", DoubleType, nullable = true)
+    ))
+
+    val df = spark.createDataFrame(
+      fares_sorted.map {
+        case (date, amount) => Row(Date.valueOf(date), amount)
+      }, schema)
+
+    writeToParquet(df, path)
+
+    val df1 = spark.read.parquet(path)
+    df1.show()
+
+    fares_sorted
+
+
   }
 
-  def max_tip_by_vendor(rides: RDD[Row]) = {
-    val tips: RDD[(Number, Double)] = rides
-      .map(row => (row.getAs[Number]("VendorID"), row.getAs[Number]("tip_amount").doubleValue()))
+  def max_tip_by_vendor(rides: RDD[Row], path: String) = {
+    val tips: RDD[(Long, Double)] = rides
+      .map(row => (row.getAs[Number]("VendorID").longValue(), row.getAs[Number]("tip_amount").doubleValue()))
       .reduceByKey((a, b) => math.max(a, b))
+
+    val schema = StructType(List(
+      StructField("vendor_id", LongType, nullable = true),
+      StructField("max_tip", DoubleType, nullable = true)
+    ))
+
+    val df = spark.createDataFrame(
+      tips.map {
+        case (id, m) => Row(id, m)
+      }, schema)
+
+    writeToParquet(df, path)
+
+    val df1 = spark.read.parquet(path)
+    df1.show()
+
     tips
   }
 
-  def rides_per_hour(rides: RDD[Row], pickup_column: String): RDD[(Int, Int)] = {
+  def rides_per_hour(rides: RDD[Row], pickup_column: String, path: String): RDD[(Long, Int)] = {
     val rides_per_hour = rides
       .map(row => {
-        (row.getAs[java.time.LocalDateTime](pickup_column).getHour.intValue, 1)
+        (row.getAs[java.time.LocalDateTime](pickup_column).getHour.toLong, 1)
       })
       .reduceByKey(_ + _)
-    rides_per_hour.sortBy(x => x._1)
+    val rides_per_hour_sorted = rides_per_hour.sortBy(x => x._1)
+
+    val schema = StructType(List(
+      StructField("hour", LongType, nullable = true),
+      StructField("rides_count", IntegerType, nullable = true)
+    ))
+
+    val df = spark.createDataFrame(
+      rides_per_hour_sorted.map {
+        case (hour, count) => Row(hour, count)
+      }, schema)
+
+    writeToParquet(df, path)
+
+    val df1 = spark.read.parquet(path)
+    df1.show()
+
+    rides_per_hour_sorted
   }
 
   def average_duration(rides: RDD[Row], pickup_column: String, dropoff_column: String): Double = {
@@ -407,11 +510,28 @@ object Main extends App {
     min_max
   }
 
-  def rides_per_type(rides: RDD[Row]): RDD[(Number, Int)] = {
+  def rides_per_type(rides: RDD[Row], path: String): RDD[(Number, Int)] = {
     val payment_type_count = rides
       .map(row => (row.getAs[Number]("payment_type"), 1))
       .reduceByKey((v1, v2) => v1 + v2)
     //val sorted = payment_type_count.sortBy(_._1, ascending = false)(Ordering[Int])
+
+
+    val schema = StructType(List(
+      StructField("payment_type", LongType, nullable = true),
+      StructField("rides_count", IntegerType, nullable = true)
+    ))
+
+    val df = spark.createDataFrame(
+      payment_type_count.map {
+        case (paymentType, count) => Row(paymentType, count)
+      }, schema)
+
+    writeToParquet(df, path)
+
+    val df1 = spark.read.parquet(path)
+    df1.show()
+
     payment_type_count
   }
 
